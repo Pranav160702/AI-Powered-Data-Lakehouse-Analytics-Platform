@@ -561,27 +561,6 @@ Main configuration lives in `.env`.
 | `GROQ_API_KEY` | Groq API key for GenAI assistant |
 | `GROQ_MODEL` | Groq model name |
 
-## Repository Hygiene Checklist
-
-Before pushing:
-
-```bash
-git status --short --ignored
-```
-
-Make sure these are not committed:
-
-- `.env`
-- `.venv/`
-- `data/`
-- `warehouse/`
-- `models/`
-- `checkpoints/`
-- `__pycache__/`
-- `.pytest_cache/`
-
-Review the final diff before committing and pushing.
-
 ## End-to-End Execution Order
 
 Use this order when demonstrating the complete platform:
