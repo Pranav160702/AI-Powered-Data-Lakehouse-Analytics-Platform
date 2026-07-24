@@ -1,0 +1,199 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lakehouse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lakehouse_analytics}
+      POSTGRES_USER: ${POSTGRES_USER:-lakehouse_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lakehouse_user} -d ${POSTGRES_DB:-lakehouse_analytics}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - lakehouse-net
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: lakehouse-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - lakehouse-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: lakehouse-kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+    networks:
+      - lakehouse-net
+
+  spark-master:
+    image: bitnami/spark:3.5.1
+    container_name: lakehouse-spark-master
+    restart: unless-stopped
+    environment:
+      SPARK_MODE: master
+      SPARK_RPC_AUTHENTICATION_ENABLED: "no"
+      SPARK_RPC_ENCRYPTION_ENABLED: "no"
+      SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED: "no"
+      SPARK_SSL_ENABLED: "no"
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080 >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - lakehouse-net
+
+  spark-worker:
+    image: bitnami/spark:3.5.1
+    container_name: lakehouse-spark-worker
+    restart: unless-stopped
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    environment:
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_WORKER_MEMORY: 2G
+      SPARK_WORKER_CORES: 2
+      SPARK_RPC_AUTHENTICATION_ENABLED: "no"
+      SPARK_RPC_ENCRYPTION_ENABLED: "no"
+      SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED: "no"
+      SPARK_SSL_ENABLED: "no"
+    networks:
+      - lakehouse-net
+
+  dashboard:
+    build: .
+    container_name: lakehouse-dashboard
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPARK_MASTER_URL: local[*]
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/opt/app/data
+      - ./warehouse:/opt/app/warehouse
+      - ./checkpoints:/opt/app/checkpoints
+      - ./models:/opt/app/models
+      - ./logs:/opt/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8501/_stcore/health >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - lakehouse-net
+
+  airflow-webserver:
+    build: .
+    container_name: lakehouse-airflow-webserver
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      AIRFLOW_HOME: /opt/app/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/app/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/app/airflow/airflow.db
+      POSTGRES_HOST: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPARK_MASTER_URL: local[*]
+    command: >
+      bash -lc "airflow db migrate &&
+      airflow users create --username admin --password admin --firstname Lake --lastname House --role Admin --email admin@example.com || true &&
+      airflow webserver --port 8088"
+    ports:
+      - "8088:8088"
+    volumes:
+      - .:/opt/app
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8088/health >/dev/null 2>&1"]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+    networks:
+      - lakehouse-net
+
+  airflow-scheduler:
+    build: .
+    container_name: lakehouse-airflow-scheduler
+    restart: unless-stopped
+    depends_on:
+      airflow-webserver:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      AIRFLOW_HOME: /opt/app/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/app/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/app/airflow/airflow.db
+      POSTGRES_HOST: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPARK_MASTER_URL: local[*]
+    command: bash -lc "airflow scheduler"
+    volumes:
+      - .:/opt/app
+    networks:
+      - lakehouse-net
+
+networks:
+  lakehouse-net:
+    driver: bridge
+
+volumes:
+  postgres_data:

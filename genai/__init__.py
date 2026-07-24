@@ -1,0 +1,1 @@
+"""GenAI analytics assistant package."""
