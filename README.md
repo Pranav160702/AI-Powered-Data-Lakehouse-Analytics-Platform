@@ -113,8 +113,6 @@ Docker Compose can run the platform dependencies locally.
 `-- .env.example
 ```
 
-Generated runtime folders such as `data/`, `warehouse/`, `models/`, `checkpoints/`, `.venv/`, and `.env` are intentionally ignored by Git.
-
 ## Prerequisites
 
 Install these before running the project locally:
@@ -159,7 +157,6 @@ GROQ_API_KEY=
 GROQ_MODEL=llama-3.1-70b-versatile
 ```
 
-Do not commit `.env`.
 
 ## Quick Start
 
@@ -564,7 +561,7 @@ Main configuration lives in `.env`.
 | `GROQ_API_KEY` | Groq API key for GenAI assistant |
 | `GROQ_MODEL` | Groq model name |
 
-## GitHub Push Checklist
+## Repository Hygiene Checklist
 
 Before pushing:
 
@@ -583,13 +580,7 @@ Make sure these are not committed:
 - `__pycache__/`
 - `.pytest_cache/`
 
-Then push:
-
-```bash
-git add .
-git commit -m "Initial complete data lakehouse analytics platform"
-git push origin main
-```
+Review the final diff before committing and pushing.
 
 ## End-to-End Execution Order
 
