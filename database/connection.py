@@ -6,8 +6,8 @@ import logging
 import time
 from pathlib import Path
 
-from sqlalchemy import Engine, create_engine, text
-from sqlalchemy.engine import URL
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import URL, Engine
 from sqlalchemy.exc import OperationalError
 
 from config.settings import Settings, get_settings

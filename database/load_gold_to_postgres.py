@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import pandas as pd
-from sqlalchemy import Engine, text
+from sqlalchemy import text
+from sqlalchemy.engine import Engine
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -30,6 +31,21 @@ BATCH_GOLD_TABLES = [
     "customer_360",
     "inventory_health",
 ]
+
+
+def _clean_value(value):
+    """Convert pandas/numpy null-like values to DBAPI-friendly None."""
+
+    if value is None:
+        return None
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    return value
+
+
+def _batched_rows(rows: list[dict], chunk_size: int):
+    for index in range(0, len(rows), chunk_size):
+        yield rows[index : index + chunk_size]
 
 
 @dataclass(frozen=True)
@@ -64,21 +80,22 @@ def load_gold_table_to_postgres(
 
     logger.info("Reading Gold table %s from %s", table_name, gold_path)
     spark_df = spark.read.format("delta").load(str(gold_path)).select(*table_model.columns)
-    pandas_df = pd.DataFrame([row.asDict() for row in spark_df.collect()])
-    rows_loaded = len(pandas_df)
+    rows = [
+        {column: _clean_value(value) for column, value in row.asDict().items()}
+        for row in spark_df.collect()
+    ]
+    rows_loaded = len(rows)
+    columns = ", ".join(table_model.columns)
+    values = ", ".join(f":{column}" for column in table_model.columns)
+    insert_statement = text(
+        f"INSERT INTO {table_model.table_name} ({columns}) VALUES ({values})"
+    )
 
     with engine.begin() as connection:
         connection.execute(text(f"DELETE FROM {table_model.table_name}"))
         if rows_loaded > 0:
-            pandas_df.to_sql(
-                table_model.table_name,
-                con=connection,
-                if_exists="append",
-                index=False,
-                dtype=table_model.dtype,
-                chunksize=chunk_size,
-                method="multi",
-            )
+            for batch in _batched_rows(rows, chunk_size):
+                connection.execute(insert_statement, batch)
 
     logger.info("Loaded %s rows into PostgreSQL table %s", rows_loaded, table_name)
     return PostgresLoadResult(table_name=table_name, rows_loaded=rows_loaded)

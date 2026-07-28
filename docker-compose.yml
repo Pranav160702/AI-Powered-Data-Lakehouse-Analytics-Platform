@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-lakehouse_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -29,7 +29,7 @@ services:
     ports:
       - "2181:2181"
     healthcheck:
-      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      test: ["CMD-SHELL", "echo srvr | nc localhost 2181 | grep Mode"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -65,7 +65,7 @@ services:
       - lakehouse-net
 
   spark-master:
-    image: bitnami/spark:3.5.1
+    image: bitnamilegacy/spark:3.5.1
     container_name: lakehouse-spark-master
     restart: unless-stopped
     environment:
@@ -78,7 +78,7 @@ services:
       - "8080:8080"
       - "7077:7077"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080 >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080'"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -86,7 +86,7 @@ services:
       - lakehouse-net
 
   spark-worker:
-    image: bitnami/spark:3.5.1
+    image: bitnamilegacy/spark:3.5.1
     container_name: lakehouse-spark-worker
     restart: unless-stopped
     depends_on:

@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
-from sqlalchemy import Engine, text
+from sqlalchemy import text
+from sqlalchemy.engine import Engine
 
 from analytics import queries
 from database.connection import get_engine_with_retry

@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 
 import pandas as pd
-from sqlalchemy import Engine
+from sqlalchemy.engine import Engine
 
 from database.connection import get_engine_with_retry
 from genai.llm_client import GroqLLMClient, LLMClient
