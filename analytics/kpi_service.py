@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
-from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from analytics import queries
@@ -40,8 +39,11 @@ def run_query(
 ) -> pd.DataFrame:
     """Execute one read-only SQL query and return a pandas DataFrame."""
 
-    with engine.connect() as connection:
-        return pd.read_sql_query(text(sql), connection, params=params)
+    connection = engine.raw_connection()
+    try:
+        return pd.read_sql_query(sql, connection, params=params)
+    finally:
+        connection.close()
 
 
 def create_dashboard_engine() -> Engine:

@@ -1,4 +1,4 @@
-.PHONY: setup test generate-data bronze silver gold postgres-load dashboard streamlit ml docker-build docker-up docker-down docker-logs kafka-topics
+.PHONY: setup test generate-data bronze silver gold postgres-load dashboard streamlit ml start-full-demo docker-build docker-up docker-down docker-logs kafka-topics
 
 setup:
 	python3 -m venv .venv
@@ -28,6 +28,9 @@ dashboard streamlit:
 
 ml:
 	scripts/run_ml_pipeline.sh
+
+start-full-demo:
+	scripts/start_full_demo.sh
 
 kafka-topics:
 	scripts/create_kafka_topics.sh

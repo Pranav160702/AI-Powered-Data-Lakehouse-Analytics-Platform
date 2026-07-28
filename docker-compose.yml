@@ -152,7 +152,8 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPARK_MASTER_URL: local[*]
     command: >
-      bash -lc "airflow db migrate &&
+      bash -lc "cd /tmp &&
+      airflow db migrate &&
       airflow users create --username admin --password admin --firstname Lake --lastname House --role Admin --email admin@example.com || true &&
       airflow webserver --port 8088"
     ports:
@@ -185,7 +186,7 @@ services:
       POSTGRES_HOST: postgres
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPARK_MASTER_URL: local[*]
-    command: bash -lc "airflow scheduler"
+    command: bash -lc "cd /tmp && airflow scheduler"
     volumes:
       - .:/opt/app
     networks:
