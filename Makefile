@@ -1,4 +1,4 @@
-.PHONY: setup test generate-data bronze silver gold postgres-load dashboard streamlit ml start-full-demo docker-build docker-up docker-down docker-logs kafka-topics
+.PHONY: setup test generate-data bronze silver gold postgres-load dashboard streamlit ml start-full-demo streaming-up streaming-down airflow-up airflow-down docker-build docker-up docker-down docker-logs kafka-topics
 
 setup:
 	python3 -m venv .venv
@@ -31,6 +31,18 @@ ml:
 
 start-full-demo:
 	scripts/start_full_demo.sh
+
+streaming-up:
+	docker compose --profile streaming up -d --build event-producer event-bronze event-silver realtime-metrics realtime-loader
+
+streaming-down:
+	docker compose --profile streaming stop event-producer event-bronze event-silver realtime-metrics realtime-loader
+
+airflow-up:
+	docker compose --profile orchestration up -d --build airflow-webserver airflow-scheduler
+
+airflow-down:
+	docker compose --profile orchestration stop airflow-webserver airflow-scheduler
 
 kafka-topics:
 	scripts/create_kafka_topics.sh

@@ -1075,6 +1075,11 @@ make gold
 make postgres-load
 make dashboard
 make ml
+make start-full-demo
+make streaming-up
+make streaming-down
+make airflow-up
+make airflow-down
 make kafka-topics
 make docker-build
 make docker-up
@@ -1093,6 +1098,51 @@ python lakehouse/gold/gold_pipeline.py
 python database/load_gold_to_postgres.py
 streamlit run dashboard/app.py
 ```
+
+For a complete local demo in one command:
+
+```bash
+make start-full-demo
+```
+
+This starts the core Docker services, creates Kafka topics, runs the batch
+lakehouse pipeline, loads PostgreSQL, trains the forecasting model, generates
+predictions, seeds real-time dashboard metrics, and restarts Streamlit.
+
+For the same flow with live Kafka/Spark streaming services:
+
+```bash
+LIVE_STREAMING=true make start-full-demo
+```
+
+Live streaming can also be controlled separately:
+
+```bash
+make streaming-up
+make streaming-down
+```
+
+The streaming profile runs five services:
+
+- `event-producer`: continuously writes generated events to Kafka.
+- `event-bronze`: reads Kafka and writes raw event Delta records to `warehouse/bronze/events`.
+- `event-silver`: reads Kafka and writes cleaned event Delta records to `warehouse/silver/events`.
+- `realtime-metrics`: reads Kafka and writes windowed Gold metrics to `warehouse/gold/realtime_metrics`.
+- `realtime-loader`: periodically loads Gold real-time metrics into PostgreSQL.
+
+Airflow is opt-in through the orchestration profile and requires
+`AIRFLOW_ADMIN_PASSWORD` in `.env`:
+
+```bash
+make airflow-up
+make airflow-down
+```
+
+Airflow is required only for automatic scheduled DAG execution. If Airflow is
+not running, the pipelines still work through `make start-full-demo` or the
+manual scripts. When Airflow is running locally, open `http://localhost:8088`,
+unpause the DAGs you want, and either trigger them manually or let their
+schedules run.
 
 ## 19. Testing Strategy
 

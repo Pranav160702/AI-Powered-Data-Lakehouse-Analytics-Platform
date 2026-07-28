@@ -136,6 +136,8 @@ services:
   airflow-webserver:
     build: .
     container_name: lakehouse-airflow-webserver
+    profiles:
+      - orchestration
     restart: unless-stopped
     depends_on:
       postgres:
@@ -151,10 +153,16 @@ services:
       POSTGRES_HOST: postgres
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPARK_MASTER_URL: local[*]
+      AIRFLOW_ADMIN_USERNAME: ${AIRFLOW_ADMIN_USERNAME:-admin}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-}
+      AIRFLOW_ADMIN_FIRSTNAME: ${AIRFLOW_ADMIN_FIRSTNAME:-Lake}
+      AIRFLOW_ADMIN_LASTNAME: ${AIRFLOW_ADMIN_LASTNAME:-House}
+      AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL:-admin@example.com}
     command: >
       bash -lc "cd /tmp &&
+      test -n \"$${AIRFLOW_ADMIN_PASSWORD}\" || (echo 'Set AIRFLOW_ADMIN_PASSWORD in .env before starting Airflow' && exit 1) &&
       airflow db migrate &&
-      airflow users create --username admin --password admin --firstname Lake --lastname House --role Admin --email admin@example.com || true &&
+      airflow users create --username \"$${AIRFLOW_ADMIN_USERNAME}\" --password \"$${AIRFLOW_ADMIN_PASSWORD}\" --firstname \"$${AIRFLOW_ADMIN_FIRSTNAME}\" --lastname \"$${AIRFLOW_ADMIN_LASTNAME}\" --role Admin --email \"$${AIRFLOW_ADMIN_EMAIL}\" || true &&
       airflow webserver --port 8088"
     ports:
       - "8088:8088"
@@ -171,6 +179,8 @@ services:
   airflow-scheduler:
     build: .
     container_name: lakehouse-airflow-scheduler
+    profiles:
+      - orchestration
     restart: unless-stopped
     depends_on:
       airflow-webserver:
@@ -189,6 +199,111 @@ services:
     command: bash -lc "cd /tmp && airflow scheduler"
     volumes:
       - .:/opt/app
+    networks:
+      - lakehouse-net
+
+  event-producer:
+    build: .
+    container_name: lakehouse-event-producer
+    profiles:
+      - streaming
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    command: bash -lc "python ingestion/event_generator.py --rate $${EVENT_RATE:-20}"
+    networks:
+      - lakehouse-net
+
+  event-bronze:
+    build: .
+    container_name: lakehouse-event-bronze
+    profiles:
+      - streaming
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPARK_MASTER_URL: local[*]
+    volumes:
+      - ./warehouse:/opt/app/warehouse
+      - ./checkpoints:/opt/app/checkpoints
+      - ./logs:/opt/app/logs
+    command: bash -lc "python streaming/stream_processor.py --target bronze"
+    networks:
+      - lakehouse-net
+
+  event-silver:
+    build: .
+    container_name: lakehouse-event-silver
+    profiles:
+      - streaming
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPARK_MASTER_URL: local[*]
+    volumes:
+      - ./warehouse:/opt/app/warehouse
+      - ./checkpoints:/opt/app/checkpoints
+      - ./logs:/opt/app/logs
+    command: bash -lc "python streaming/stream_processor.py --target silver"
+    networks:
+      - lakehouse-net
+
+  realtime-metrics:
+    build: .
+    container_name: lakehouse-realtime-metrics
+    profiles:
+      - streaming
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPARK_MASTER_URL: local[*]
+    volumes:
+      - ./warehouse:/opt/app/warehouse
+      - ./checkpoints:/opt/app/checkpoints
+      - ./logs:/opt/app/logs
+    command: bash -lc "python streaming/realtime_aggregations.py"
+    networks:
+      - lakehouse-net
+
+  realtime-loader:
+    build: .
+    container_name: lakehouse-realtime-loader
+    profiles:
+      - streaming
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      realtime-metrics:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+    volumes:
+      - ./warehouse:/opt/app/warehouse
+      - ./logs:/opt/app/logs
+    command: bash -lc "scripts/load_realtime_metrics_loop.sh"
     networks:
       - lakehouse-net
 

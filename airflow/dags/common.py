@@ -27,6 +27,7 @@ def task_commands() -> dict[str, str]:
     """Return command strings used by Airflow DAG tasks."""
 
     return {
+        "generate_sample_data": "python scripts/generate_sample_data.py",
         "validate_source_files": "python - <<'PY'\nfrom pathlib import Path\nrequired = ['customers.csv','products.csv','categories.csv','orders.csv','order_items.csv','payments.csv','inventory.csv']\nmissing = [name for name in required if not (Path('data/raw') / name).exists()]\nif missing:\n    raise FileNotFoundError(f'Missing source files: {missing}')\nprint('source files validated')\nPY",
         "ingest_bronze": "python ingestion/batch_ingestion.py",
         "transform_silver": "python lakehouse/silver/silver_pipeline.py",

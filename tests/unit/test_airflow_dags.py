@@ -17,6 +17,7 @@ def test_batch_dag_task_ids_match_phase_requirements() -> None:
     """Batch DAG metadata should include required batch tasks."""
 
     assert BATCH_TASK_IDS == [
+        "generate_sample_data",
         "validate_source_files",
         "ingest_bronze",
         "transform_silver",
@@ -53,4 +54,5 @@ def test_airflow_commands_run_from_project_root() -> None:
 
     assert "cd " in command
     assert command.endswith("python ml/train_demand_forecast.py")
+    assert "generate_sample_data" in task_commands()
     assert "train_model" in task_commands()

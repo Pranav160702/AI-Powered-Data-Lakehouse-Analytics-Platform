@@ -160,7 +160,27 @@ GROQ_MODEL=llama-3.1-70b-versatile
 
 ## Quick Start
 
-Use this flow to run the batch analytics platform locally.
+Use one command to start the local demo platform, run the batch lakehouse pipeline,
+train forecasts, seed real-time dashboard metrics, and restart the dashboard:
+
+```bash
+make start-full-demo
+```
+
+Open:
+
+```text
+http://localhost:8501
+```
+
+To start the same setup with live Kafka/Spark streaming instead of seeded demo
+real-time rows:
+
+```bash
+LIVE_STREAMING=true make start-full-demo
+```
+
+Use this manual flow only when you want to run each batch step yourself.
 
 ```bash
 source .venv/bin/activate
@@ -191,6 +211,11 @@ make silver
 make gold
 make postgres-load
 make streamlit
+make start-full-demo
+make streaming-up
+make streaming-down
+make airflow-up
+make airflow-down
 ```
 
 Run tests:
@@ -352,37 +377,27 @@ The dashboard reads from PostgreSQL, so load the serving tables first.
 
 ## Real-Time Streaming Pipeline
 
-Start Kafka and Zookeeper:
+For an instant demo, `make start-full-demo` seeds recent real-time metric windows
+into PostgreSQL. For live streaming, run:
 
 ```bash
-docker compose up -d zookeeper kafka
+LIVE_STREAMING=true make start-full-demo
 ```
 
-Create topics:
+Or start/stop the streaming services separately after the core platform is up:
 
 ```bash
-bash scripts/create_kafka_topics.sh
+make streaming-up
+make streaming-down
 ```
 
-Start the event generator:
+The live streaming profile runs:
 
-```bash
-python ingestion/event_generator.py --rate 20
-```
-
-Keep it running.
-
-Start the real-time aggregation job in another terminal:
-
-```bash
-python streaming/realtime_aggregations.py
-```
-
-After one or two minutes, load real-time metrics into PostgreSQL:
-
-```bash
-python streaming/load_realtime_to_postgres.py
-```
+- `event-producer`: generates Kafka e-commerce events
+- `event-bronze`: stores raw Kafka events in `warehouse/bronze/events`
+- `event-silver`: stores cleaned Kafka events in `warehouse/silver/events`
+- `realtime-metrics`: builds Spark Structured Streaming Gold metrics
+- `realtime-loader`: periodically loads Gold real-time metrics into PostgreSQL
 
 Real-time outputs:
 
@@ -470,6 +485,23 @@ bash scripts/run_ml_pipeline.sh
 
 The DAG files are lightweight and do not start Spark sessions at parse time.
 
+You only need to run Airflow locally if you want the DAG schedules to execute
+automatically. Without Airflow, use `make start-full-demo` or the scripts
+manually.
+
+Start Airflow after setting `AIRFLOW_ADMIN_PASSWORD` in `.env`:
+
+```bash
+make airflow-up
+```
+
+Then open `http://localhost:8088`, enable/unpause the DAGs, and trigger them
+or wait for their schedules. Stop Airflow with:
+
+```bash
+make airflow-down
+```
+
 ## Docker Compose
 
 Create `.env` first:
@@ -482,7 +514,7 @@ Build and start services:
 
 ```bash
 docker compose build
-docker compose up -d
+docker compose up -d postgres zookeeper kafka spark-master spark-worker dashboard
 ```
 
 Useful service URLs:
@@ -491,15 +523,27 @@ Useful service URLs:
 Streamlit:     http://localhost:8501
 Spark Master:  http://localhost:8080
 Airflow:       http://localhost:8088
-PostgreSQL:    localhost:5432
+PostgreSQL:    localhost:5433
 Kafka:         localhost:9092
 ```
 
-Default Airflow credentials:
+Airflow is opt-in and requires credentials in `.env`:
 
-```text
-username: admin
-password: admin
+```env
+AIRFLOW_ADMIN_USERNAME=admin
+AIRFLOW_ADMIN_PASSWORD=change_me_before_running_airflow
+```
+
+Start Airflow:
+
+```bash
+make airflow-up
+```
+
+Stop Airflow:
+
+```bash
+make airflow-down
 ```
 
 Stop services:

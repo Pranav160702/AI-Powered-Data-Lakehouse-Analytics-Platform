@@ -69,6 +69,7 @@ _delta_log/
 _spark_metadata/
 
 # Airflow local state
+airflow/airflow.cfg
 airflow/airflow.db
 airflow/webserver_config.py
 airflow/*.pid

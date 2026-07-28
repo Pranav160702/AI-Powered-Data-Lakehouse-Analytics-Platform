@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+LIVE_STREAMING="${LIVE_STREAMING:-false}"
+
 COMPOSE_SERVICES=(
   postgres
   zookeeper
@@ -87,11 +89,20 @@ docker compose exec -T dashboard python ml/train_demand_forecast.py
 echo "Generating demand forecasts..."
 docker compose exec -T dashboard python ml/predict_demand.py
 
-echo "Seeding dashboard real-time metrics..."
-docker compose exec -T dashboard python scripts/seed_realtime_metrics.py
+if [[ "${LIVE_STREAMING}" == "true" ]]; then
+  echo "Starting live streaming services..."
+  docker compose --profile streaming up -d --build event-producer event-bronze event-silver realtime-metrics realtime-loader
+  echo "Live streaming services are running. Real-time metrics will refresh periodically."
+else
+  echo "Seeding dashboard real-time metrics..."
+  docker compose exec -T dashboard python scripts/seed_realtime_metrics.py
+fi
 
 echo "Clearing Streamlit cache by restarting dashboard..."
 docker compose restart dashboard
 
 echo "Ready."
 echo "Dashboard: http://localhost:8501"
+if [[ "${LIVE_STREAMING}" == "true" ]]; then
+  echo "Streaming logs: docker compose --profile streaming logs -f event-producer event-bronze event-silver realtime-metrics realtime-loader"
+fi

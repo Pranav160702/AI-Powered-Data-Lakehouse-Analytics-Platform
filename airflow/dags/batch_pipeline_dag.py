@@ -16,6 +16,7 @@ except ModuleNotFoundError:
 
 DAG_ID = "batch_pipeline"
 TASK_IDS = [
+    "generate_sample_data",
     "validate_source_files",
     "ingest_bronze",
     "transform_silver",
@@ -38,6 +39,10 @@ def build_dag():
         catchup=False,
         tags=["lakehouse", "batch"],
     ) as dag:
+        generate_sample_data = BashOperator(
+            task_id="generate_sample_data",
+            bash_command=project_command(commands["generate_sample_data"]),
+        )
         validate_source_files = BashOperator(
             task_id="validate_source_files",
             bash_command=project_command(commands["validate_source_files"]),
@@ -55,7 +60,13 @@ def build_dag():
             bash_command=project_command(commands["run_data_quality_checks"]),
         )
 
-        validate_source_files >> ingest_bronze >> transform_silver >> run_data_quality_checks
+        (
+            generate_sample_data
+            >> validate_source_files
+            >> ingest_bronze
+            >> transform_silver
+            >> run_data_quality_checks
+        )
         return dag
 
 
