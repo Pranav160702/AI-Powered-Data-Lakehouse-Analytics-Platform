@@ -574,7 +574,14 @@ S3-backed Unity Catalog volume
 -> Streamlit dashboard
 ```
 
-After installing and authenticating the Databricks CLI:
+Validate the local cloud configuration first:
+
+```bash
+make cloud-validate
+```
+
+After installing the AWS CLI and Databricks CLI, the Make targets load `.env`
+and pass the required bundle variables:
 
 ```bash
 make databricks-validate

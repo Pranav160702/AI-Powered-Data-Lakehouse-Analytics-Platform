@@ -42,6 +42,21 @@ class Settings(BaseSettings):
     streaming_window_duration: str = Field(default="5 minutes")
     streaming_slide_duration: str = Field(default="1 minute")
 
+    aws_access_key_id: str | None = Field(default=None)
+    aws_secret_access_key: str | None = Field(default=None)
+    aws_default_region: str | None = Field(default=None)
+    s3_bucket_name: str | None = Field(default=None)
+    s3_raw_prefix: str = Field(default="raw")
+    s3_bronze_prefix: str = Field(default="bronze")
+    s3_silver_prefix: str = Field(default="silver")
+    s3_gold_prefix: str = Field(default="gold")
+
+    databricks_host: str | None = Field(default=None)
+    databricks_token: str | None = Field(default=None)
+    databricks_cluster_id: str | None = Field(default=None)
+    databricks_workspace_path: str | None = Field(default=None)
+    databricks_lakehouse_root: str | None = Field(default=None)
+
     postgres_host: str = Field(default="localhost")
     postgres_port: int = Field(default=5432)
     postgres_db: str = Field(default="lakehouse_analytics")
@@ -75,6 +90,24 @@ class Settings(BaseSettings):
             f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    def s3_uri(self, prefix: str = "") -> str:
+        """Return an S3 URI for the configured bucket and optional prefix."""
+
+        if not self.s3_bucket_name:
+            raise ValueError("S3_BUCKET_NAME is required to build S3 URIs.")
+        normalized_prefix = prefix.strip("/")
+        if not normalized_prefix:
+            return f"s3://{self.s3_bucket_name}"
+        return f"s3://{self.s3_bucket_name}/{normalized_prefix}"
+
+    @property
+    def cloud_lakehouse_root(self) -> str:
+        """Return the configured Databricks/S3 lakehouse root."""
+
+        if self.databricks_lakehouse_root:
+            return self.databricks_lakehouse_root.rstrip("/")
+        return self.s3_uri()
 
 
 @lru_cache

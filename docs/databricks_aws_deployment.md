@@ -163,24 +163,38 @@ Delta table and loads `realtime_metrics` into PostgreSQL.
 6. RDS/Aurora PostgreSQL database reachable from Databricks.
 7. MSK/Kafka endpoint reachable from Databricks for live streaming.
 
+## Local Validation
+
+Validate `.env` before deploying. The validator confirms required AWS,
+Databricks, and PostgreSQL settings are present without printing secret values:
+
+```bash
+make cloud-validate
+```
+
+This does not replace cloud connectivity checks. Install the AWS CLI and
+Databricks CLI before running bundle commands.
+
 ## Databricks CLI Commands
+
+The Make targets load `.env` and pass the required Databricks bundle variables.
 
 Validate bundle:
 
 ```bash
-databricks bundle validate -t dev
+make databricks-validate
 ```
 
 Deploy bundle:
 
 ```bash
-databricks bundle deploy -t dev
+make databricks-deploy
 ```
 
 Run the batch pipeline:
 
 ```bash
-databricks bundle run -t dev lakehouse_batch_pipeline
+make databricks-run-batch
 ```
 
 Run the streaming metrics job:

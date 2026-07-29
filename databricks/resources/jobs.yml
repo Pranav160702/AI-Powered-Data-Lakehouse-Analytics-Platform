@@ -24,6 +24,7 @@ resources:
               POSTGRES_HOST: ${var.postgres_host}
               POSTGRES_DB: ${var.postgres_db}
               POSTGRES_USER: ${var.postgres_user}
+              POSTGRES_PASSWORD: ${var.postgres_password}
       tasks:
         - task_key: generate_sample_data
           job_cluster_key: lakehouse_job_cluster
@@ -183,6 +184,7 @@ resources:
               POSTGRES_HOST: ${var.postgres_host}
               POSTGRES_DB: ${var.postgres_db}
               POSTGRES_USER: ${var.postgres_user}
+              POSTGRES_PASSWORD: ${var.postgres_password}
       tasks:
         - task_key: load_realtime_metrics
           job_cluster_key: realtime_loader_cluster

@@ -1,4 +1,4 @@
-.PHONY: setup test generate-data bronze silver gold postgres-load dashboard streamlit ml start-full-demo streaming-up streaming-down airflow-up airflow-down databricks-validate databricks-deploy databricks-run-batch docker-build docker-up docker-down docker-logs kafka-topics
+.PHONY: setup test generate-data bronze silver gold postgres-load dashboard streamlit ml start-full-demo streaming-up streaming-down airflow-up airflow-down cloud-validate databricks-validate databricks-deploy databricks-run-batch docker-build docker-up docker-down docker-logs kafka-topics
 
 setup:
 	python3 -m venv .venv
@@ -44,14 +44,17 @@ airflow-up:
 airflow-down:
 	docker compose --profile orchestration stop airflow-webserver airflow-scheduler
 
+cloud-validate:
+	.venv/bin/python scripts/validate_cloud_config.py
+
 databricks-validate:
-	databricks bundle validate -t dev
+	set -a; . ./.env; set +a; databricks bundle validate -t dev --var workspace_host="$$DATABRICKS_HOST" --var lakehouse_root="$${DATABRICKS_LAKEHOUSE_ROOT:-/Volumes/main/lakehouse/ai_powered_lakehouse}" --var postgres_host="$$POSTGRES_HOST" --var postgres_db="$$POSTGRES_DB" --var postgres_user="$$POSTGRES_USER" --var postgres_password="$$POSTGRES_PASSWORD"
 
 databricks-deploy:
-	databricks bundle deploy -t dev
+	set -a; . ./.env; set +a; databricks bundle deploy -t dev --var workspace_host="$$DATABRICKS_HOST" --var lakehouse_root="$${DATABRICKS_LAKEHOUSE_ROOT:-/Volumes/main/lakehouse/ai_powered_lakehouse}" --var postgres_host="$$POSTGRES_HOST" --var postgres_db="$$POSTGRES_DB" --var postgres_user="$$POSTGRES_USER" --var postgres_password="$$POSTGRES_PASSWORD"
 
 databricks-run-batch:
-	databricks bundle run -t dev lakehouse_batch_pipeline
+	set -a; . ./.env; set +a; databricks bundle run -t dev lakehouse_batch_pipeline --var workspace_host="$$DATABRICKS_HOST" --var lakehouse_root="$${DATABRICKS_LAKEHOUSE_ROOT:-/Volumes/main/lakehouse/ai_powered_lakehouse}" --var postgres_host="$$POSTGRES_HOST" --var postgres_db="$$POSTGRES_DB" --var postgres_user="$$POSTGRES_USER" --var postgres_password="$$POSTGRES_PASSWORD"
 
 kafka-topics:
 	scripts/create_kafka_topics.sh
