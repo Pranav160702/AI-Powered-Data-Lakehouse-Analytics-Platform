@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     postgres_max_overflow: int = Field(default=10, ge=0)
     postgres_connect_timeout: int = Field(default=10, ge=1)
 
+    analytics_api_url: str | None = Field(default=None)
+
     groq_api_key: str | None = Field(default=None)
     groq_model: str = Field(default="llama-3.1-70b-versatile")
 

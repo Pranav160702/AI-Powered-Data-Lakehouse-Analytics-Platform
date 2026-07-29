@@ -21,6 +21,7 @@ Batch CSV/API data
 -> Silver Delta on S3
 -> Gold Delta on S3
 -> RDS/Aurora PostgreSQL serving layer
+-> FastAPI REST API
 -> Streamlit/BI/GenAI assistant
 
 Live events
@@ -29,6 +30,7 @@ Live events
 -> Gold realtime_metrics Delta on S3
 -> Databricks scheduled loader job
 -> RDS/Aurora PostgreSQL
+-> FastAPI REST API
 ```
 
 ## Recommended AWS Services
@@ -41,6 +43,7 @@ Live events
 | Workflow orchestration | Databricks Jobs |
 | Streaming broker | Amazon MSK or Confluent Cloud |
 | Serving database | Amazon RDS PostgreSQL or Aurora PostgreSQL |
+| REST API | FastAPI on ECS, App Runner, EC2, or Kubernetes |
 | Secrets | Databricks secrets backed by AWS Secrets Manager or Databricks secret scopes |
 | Monitoring | Databricks job run logs, CloudWatch, RDS metrics |
 
@@ -222,6 +225,7 @@ This scaffold is the first cloud migration step. Before production use:
 - Add IAM roles and Unity Catalog grants for the S3-backed volume.
 - Add MSK security settings if the Kafka cluster requires SASL/SSL.
 - Add a PostgreSQL read-only user for dashboard and GenAI queries.
+- Deploy the FastAPI service near RDS and point Streamlit at `ANALYTICS_API_URL`.
 - Add freshness and row-count audit tables.
 - Replace delete/insert serving loads with staging-table swaps or bulk COPY.
 - Add Databricks job alerts for failure and SLA misses.

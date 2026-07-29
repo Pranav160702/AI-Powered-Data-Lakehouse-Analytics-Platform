@@ -570,6 +570,8 @@ S3-backed Unity Catalog volume
 -> Databricks Delta Lake tables
 -> Databricks Jobs for batch, streaming, and ML
 -> RDS/Aurora PostgreSQL serving layer
+-> FastAPI REST API
+-> Streamlit dashboard
 ```
 
 After installing and authenticating the Databricks CLI:

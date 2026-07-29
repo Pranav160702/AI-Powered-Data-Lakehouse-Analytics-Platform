@@ -47,6 +47,9 @@ airflow/logs/*
 *.log
 *.out
 
+# Local cloud billing exports
+budgets.csv
+
 # Generated data and runtime lakehouse storage
 data/raw/*.csv
 data/raw/*.json

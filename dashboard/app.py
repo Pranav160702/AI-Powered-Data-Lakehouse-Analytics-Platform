@@ -6,14 +6,17 @@ import sys
 from pathlib import Path
 
 import streamlit as st
+from httpx import HTTPError
 from sqlalchemy.exc import SQLAlchemyError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from analytics.api_client import load_dashboard_data_from_api
 from analytics.kpi_service import create_dashboard_engine, load_dashboard_data
 from config.logging_config import configure_logging
+from config.settings import get_settings
 from dashboard.components.sidebar import render_sidebar
 from dashboard.pages import (
     ai_assistant,
@@ -47,7 +50,11 @@ def get_cached_engine():
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_cached_dashboard_data(limit: int):
-    """Return cached dashboard data from PostgreSQL."""
+    """Return cached dashboard data from API or PostgreSQL."""
+
+    settings = get_settings()
+    if settings.analytics_api_url:
+        return load_dashboard_data_from_api(settings.analytics_api_url, limit=limit)
 
     engine = get_cached_engine()
     return load_dashboard_data(engine, limit=limit)
@@ -69,10 +76,10 @@ def main() -> None:
 
     try:
         data = get_cached_dashboard_data(limit)
-    except (ConnectionError, SQLAlchemyError) as exc:
+    except (ConnectionError, SQLAlchemyError, HTTPError) as exc:
         st.error(
-            "PostgreSQL is not ready for the dashboard. Check `.env`, start PostgreSQL, "
-            "and run `python database/load_gold_to_postgres.py`."
+            "Analytics serving layer is not ready. Check PostgreSQL/API settings, "
+            "start services, and load Gold tables into PostgreSQL."
         )
         st.caption(str(exc))
         return

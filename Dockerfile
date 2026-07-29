@@ -25,6 +25,6 @@ COPY . .
 
 RUN chmod +x scripts/*.sh
 
-EXPOSE 8501
+EXPOSE 8501 8000
 
 CMD ["streamlit", "run", "dashboard/app.py", "--server.address", "0.0.0.0", "--server.port", "8501", "--server.headless", "true"]

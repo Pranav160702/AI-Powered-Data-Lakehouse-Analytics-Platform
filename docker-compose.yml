@@ -109,12 +109,13 @@ services:
     container_name: lakehouse-dashboard
     restart: unless-stopped
     depends_on:
-      postgres:
+      api:
         condition: service_healthy
     env_file:
       - .env
     environment:
       POSTGRES_HOST: postgres
+      ANALYTICS_API_URL: http://api:8000
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPARK_MASTER_URL: local[*]
     ports:
@@ -127,6 +128,28 @@ services:
       - ./logs:/opt/app/logs
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8501/_stcore/health >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - lakehouse-net
+
+  api:
+    build: .
+    container_name: lakehouse-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+    command: uvicorn api.app:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health >/dev/null 2>&1"]
       interval: 15s
       timeout: 5s
       retries: 10

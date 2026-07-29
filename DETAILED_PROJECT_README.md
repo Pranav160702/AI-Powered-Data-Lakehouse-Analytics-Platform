@@ -546,6 +546,8 @@ The dashboard data service lives in:
 
 - `analytics/queries.py`
 - `analytics/kpi_service.py`
+- `api/app.py`
+- `analytics/api_client.py`
 
 `analytics/queries.py` stores read-only PostgreSQL SQL queries for:
 
@@ -560,7 +562,7 @@ The dashboard data service lives in:
 - Inventory status
 - Real-time metrics
 
-`analytics/kpi_service.py` executes these queries and returns a `DashboardData` dataclass containing pandas DataFrames. This separates dashboard rendering from database access.
+`analytics/kpi_service.py` executes these queries and returns a `DashboardData` dataclass containing pandas DataFrames. `api/app.py` exposes the same datasets over FastAPI at `/api/v1/dashboard-data`. `analytics/api_client.py` lets Streamlit consume that REST API when `ANALYTICS_API_URL` is configured. If no API URL is configured, Streamlit falls back to direct PostgreSQL access for local development.
 
 ## 12. Streamlit Dashboard
 
