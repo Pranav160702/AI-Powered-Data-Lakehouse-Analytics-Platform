@@ -228,6 +228,18 @@ Run the batch pipeline:
 make databricks-run-batch
 ```
 
+Check AWS, S3, Databricks, bundle validation, and local RDS connectivity:
+
+```bash
+make cloud-check
+```
+
+For a config-only check without network calls:
+
+```bash
+make cloud-check CLOUD_CHECK_ARGS=--skip-network
+```
+
 Run the streaming metrics job:
 
 ```bash
@@ -245,6 +257,21 @@ job has reached the serving load step but RDS networking is blocking the
 connection. Update the RDS security group/VPC rules to allow PostgreSQL port
 `5432` from Databricks serverless networking, or copy Gold output from the
 Databricks volume and load it from a machine that can reach RDS.
+
+Supported fallback while the Databricks-to-RDS network path is being fixed:
+
+```bash
+make databricks-load-gold-local
+```
+
+This copies:
+
+```text
+dbfs:/Volumes/workspace/default/ai_powered_lakehouse/warehouse/gold
+```
+
+to a temporary local path and runs `database/load_gold_to_postgres.py` against
+the configured RDS PostgreSQL endpoint.
 
 ## Current Cloud Readiness
 

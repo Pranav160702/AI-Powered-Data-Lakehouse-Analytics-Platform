@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -41,7 +42,13 @@ def run_query(
 
     connection = engine.raw_connection()
     try:
-        return pd.read_sql_query(sql, connection, params=params)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="pandas only supports SQLAlchemy connectable",
+                category=UserWarning,
+            )
+            return pd.read_sql_query(sql, connection, params=params)
     finally:
         connection.close()
 

@@ -665,6 +665,18 @@ make databricks-deploy
 make databricks-run-batch
 ```
 
+Run a concise cloud readiness check from this machine:
+
+```bash
+make cloud-check
+```
+
+For a config-only check without network calls:
+
+```bash
+make cloud-check CLOUD_CHECK_ARGS=--skip-network
+```
+
 For Databricks Free Edition/serverless, the default lakehouse root is:
 
 ```text
@@ -674,6 +686,13 @@ For Databricks Free Edition/serverless, the default lakehouse root is:
 If Databricks cannot reach RDS, allow PostgreSQL port `5432` from Databricks
 serverless networking or load the Databricks-produced Gold Delta tables from a
 network location that can reach RDS.
+
+To use the supported local fallback after a Databricks run has produced Gold
+Delta tables:
+
+```bash
+make databricks-load-gold-local
+```
 
 See `docs/databricks_aws_deployment.md` for setup details.
 

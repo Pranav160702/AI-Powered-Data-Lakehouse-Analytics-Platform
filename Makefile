@@ -1,4 +1,4 @@
-.PHONY: setup test generate-data bronze silver gold postgres-load dashboard streamlit ml start-full-demo streaming-up streaming-down airflow-up airflow-down cloud-validate databricks-put-secrets databricks-validate databricks-deploy databricks-run-batch docker-build docker-up docker-down docker-logs kafka-topics
+.PHONY: setup test generate-data bronze silver gold postgres-load dashboard streamlit ml start-full-demo streaming-up streaming-down airflow-up airflow-down cloud-validate cloud-check databricks-put-secrets databricks-validate databricks-deploy databricks-run-batch databricks-load-gold-local docker-build docker-up docker-down docker-logs kafka-topics
 
 setup:
 	python3 -m venv .venv
@@ -47,6 +47,9 @@ airflow-down:
 cloud-validate:
 	.venv/bin/python scripts/validate_cloud_config.py
 
+cloud-check:
+	.venv/bin/python scripts/check_cloud_connectivity.py $(CLOUD_CHECK_ARGS)
+
 databricks-put-secrets:
 	set -a; . ./.env; set +a; databricks secrets create-scope lakehouse || true; databricks secrets put-secret lakehouse postgres_password --string-value "$$POSTGRES_PASSWORD"
 
@@ -58,6 +61,9 @@ databricks-deploy:
 
 databricks-run-batch:
 	set -a; . ./.env; set +a; databricks bundle run -t dev lakehouse_batch_pipeline --var lakehouse_root="$${DATABRICKS_LAKEHOUSE_ROOT:-/Volumes/workspace/default/ai_powered_lakehouse}" --var postgres_host="$$POSTGRES_HOST" --var postgres_db="$$POSTGRES_DB" --var postgres_user="$$POSTGRES_USER"
+
+databricks-load-gold-local:
+	scripts/load_databricks_gold_to_rds_local.sh
 
 kafka-topics:
 	scripts/create_kafka_topics.sh
