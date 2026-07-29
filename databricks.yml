@@ -5,11 +5,9 @@ include:
   - databricks/resources/*.yml
 
 variables:
-  workspace_host:
-    description: Databricks workspace URL, for example https://dbc-xxxx.cloud.databricks.com
   lakehouse_root:
     description: Unity Catalog volume or DBFS mount path backed by S3.
-    default: /Volumes/main/lakehouse/ai_powered_lakehouse
+    default: /Volumes/workspace/default/ai_powered_lakehouse
   spark_version:
     description: Databricks Runtime version for job clusters.
     default: 15.4.x-scala2.12
@@ -32,9 +30,6 @@ variables:
     description: PostgreSQL serving password. Prefer a Databricks secret reference for shared deployments.
     default: "{{secrets/lakehouse/postgres_password}}"
 
-workspace:
-  host: ${var.workspace_host}
-
 sync:
   include:
     - airflow/**
@@ -52,6 +47,11 @@ sync:
     - requirements.txt
     - pyproject.toml
   exclude:
+    - .git/**
+    - .venv/**
+    - __pycache__/**
+    - "**/__pycache__/**"
+    - .pytest_cache/**
     - .env
     - .env.*
     - data/**
@@ -59,6 +59,11 @@ sync:
     - checkpoints/**
     - models/**
     - logs/**
+    - airflow/logs/**
+    - airflow/airflow.cfg
+    - airflow/airflow.db
+    - airflow/webserver_config.py
+    - airflow/*.pid
 
 targets:
   dev:

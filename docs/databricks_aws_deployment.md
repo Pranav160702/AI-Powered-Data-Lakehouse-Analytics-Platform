@@ -13,24 +13,44 @@ orchestrate repeatable ETL and ML workflows.
 
 ## Target Architecture
 
-```text
-Batch CSV/API data
--> S3 landing zone
--> Databricks Job: generate/load raw files
--> Bronze Delta on S3
--> Silver Delta on S3
--> Gold Delta on S3
--> RDS/Aurora PostgreSQL serving layer
--> FastAPI REST API
--> Streamlit/BI/GenAI assistant
+| Local project component | Cloud-integrated component |
+| --- | --- |
+| `data/raw/` | Amazon S3 `raw/` through a Databricks volume path |
+| `warehouse/bronze/` | Bronze Delta tables stored on S3 |
+| `warehouse/silver/` | Silver Delta tables stored on S3 |
+| `warehouse/gold/` | Gold Delta tables stored on S3 |
+| Local Spark | Databricks Spark serverless jobs |
+| Local PostgreSQL container | Amazon RDS PostgreSQL |
+| Local FastAPI | Local first, later App Runner, ECS, or EC2 |
+| Local Streamlit | Local Streamlit dashboard |
+| Local Airflow | Local initially; Databricks Jobs for cloud batch runs |
+| Local model files | Databricks volume or S3-backed model artifact path |
 
-Live events
--> Amazon MSK or Confluent Cloud Kafka
--> Databricks Structured Streaming
--> Gold realtime_metrics Delta on S3
--> Databricks scheduled loader job
--> RDS/Aurora PostgreSQL
--> FastAPI REST API
+Batch flow:
+
+```text
+Synthetic / source data
+-> Amazon S3 raw/
+-> Databricks Bronze Delta
+-> Databricks Silver Delta
+-> Databricks Gold Delta
+-> Amazon RDS PostgreSQL
+-> FastAPI Analytics API
+-> Streamlit Dashboard
+-> GenAI SQL Assistant
+```
+
+Streaming flow:
+
+```text
+Event Generator
+-> Kafka
+-> Spark Structured Streaming
+-> Bronze Event Delta on S3
+-> Silver Event Delta on S3
+-> Gold realtime_metrics Delta
+-> Amazon RDS PostgreSQL
+-> Streamlit Real-Time Dashboard
 ```
 
 ## Recommended AWS Services
@@ -38,7 +58,7 @@ Live events
 | Need | Recommended Service |
 | --- | --- |
 | Lakehouse storage | Amazon S3 |
-| Spark compute | Databricks Jobs clusters |
+| Spark compute | Databricks serverless jobs |
 | Delta tables | Databricks Delta Lake |
 | Workflow orchestration | Databricks Jobs |
 | Streaming broker | Amazon MSK or Confluent Cloud |
@@ -75,12 +95,12 @@ That keeps the existing project code working while storing the actual data in S3
 Example:
 
 ```env
-LAKEHOUSE_ROOT=/Volumes/main/lakehouse/ai_powered_lakehouse
-DATA_DIR=/Volumes/main/lakehouse/ai_powered_lakehouse/data
-RAW_DATA_DIR=/Volumes/main/lakehouse/ai_powered_lakehouse/data/raw
-WAREHOUSE_DIR=/Volumes/main/lakehouse/ai_powered_lakehouse/warehouse
-CHECKPOINT_DIR=/Volumes/main/lakehouse/ai_powered_lakehouse/checkpoints
-MODEL_DIR=/Volumes/main/lakehouse/ai_powered_lakehouse/models
+LAKEHOUSE_ROOT=/Volumes/workspace/default/ai_powered_lakehouse
+DATA_DIR=/Volumes/workspace/default/ai_powered_lakehouse/data
+RAW_DATA_DIR=/Volumes/workspace/default/ai_powered_lakehouse/data/raw
+WAREHOUSE_DIR=/Volumes/workspace/default/ai_powered_lakehouse/warehouse
+CHECKPOINT_DIR=/Volumes/workspace/default/ai_powered_lakehouse/checkpoints
+MODEL_DIR=/Volumes/workspace/default/ai_powered_lakehouse/models
 ```
 
 ## Databricks Bundle Files Added
@@ -159,7 +179,7 @@ Delta table and loads `realtime_metrics` into PostgreSQL.
 2. Databricks workspace on AWS.
 3. Databricks CLI installed and authenticated.
 4. S3 bucket/prefix for lakehouse storage.
-5. Unity Catalog external location and volume, or a DBFS mount, backed by S3.
+5. Unity Catalog external location and volume, or a managed volume, backed by S3.
 6. RDS/Aurora PostgreSQL database reachable from Databricks.
 7. MSK/Kafka endpoint reachable from Databricks for live streaming.
 
@@ -178,11 +198,22 @@ Databricks CLI before running bundle commands.
 ## Databricks CLI Commands
 
 The Make targets load `.env` and pass the required Databricks bundle variables.
+Databricks Free Edition/serverless uses the managed volume path below by default:
+
+```text
+/Volumes/workspace/default/ai_powered_lakehouse
+```
 
 Validate bundle:
 
 ```bash
 make databricks-validate
+```
+
+Create or update Databricks secrets:
+
+```bash
+make databricks-put-secrets
 ```
 
 Deploy bundle:
@@ -209,13 +240,36 @@ Run the realtime loader once:
 databricks bundle run -t dev lakehouse_realtime_loader
 ```
 
+If Databricks serverless times out while connecting to RDS, the Databricks
+job has reached the serving load step but RDS networking is blocking the
+connection. Update the RDS security group/VPC rules to allow PostgreSQL port
+`5432` from Databricks serverless networking, or copy Gold output from the
+Databricks volume and load it from a machine that can reach RDS.
+
+## Current Cloud Readiness
+
+Validated:
+
+- AWS CLI authentication.
+- Databricks CLI authentication.
+- S3 list/write/delete from the local machine.
+- Databricks bundle validation and deployment.
+- Databricks batch run through Bronze, Silver, Gold, training, and prediction.
+- Local machine to Amazon RDS PostgreSQL.
+- Streamlit dashboard reads the RDS serving tables.
+
+Open blocker:
+
+- Databricks serverless to Amazon RDS PostgreSQL still times out on port `5432`.
+  This blocks the Databricks `load_postgres` and `lakehouse_realtime_loader`
+  tasks until RDS networking allows Databricks serverless egress.
+
 ## Variables To Set
 
 At deployment time, set these bundle variables in your Databricks configuration
 or pass them through your target configuration:
 
 ```text
-workspace_host
 lakehouse_root
 kafka_bootstrap_servers
 postgres_host

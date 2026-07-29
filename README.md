@@ -58,6 +58,81 @@ Airflow orchestrates batch, Gold, and ML pipelines.
 Docker Compose can run the platform dependencies locally.
 ```
 
+## Cloud Target Architecture
+
+The project is being migrated with the following local-to-cloud mapping while
+keeping Streamlit as the visualization layer:
+
+| Local project component | Cloud-integrated component |
+| --- | --- |
+| `data/raw/` | Amazon S3 `raw/` through a Databricks volume path |
+| `warehouse/bronze/` | Bronze Delta tables stored on S3 |
+| `warehouse/silver/` | Silver Delta tables stored on S3 |
+| `warehouse/gold/` | Gold Delta tables stored on S3 |
+| Local Spark | Databricks Spark serverless jobs |
+| Local PostgreSQL container | Amazon RDS PostgreSQL |
+| Local FastAPI | Local first, later App Runner, ECS, or EC2 |
+| Local Streamlit | Local Streamlit dashboard |
+| Local Airflow | Local initially; Databricks Jobs for cloud batch runs |
+| Local model files | Databricks volume or S3-backed model artifact path |
+
+Cloud batch flow:
+
+```text
+Synthetic / source data
+     |
+     v
+Amazon S3 raw/
+     |
+     v
+Databricks Bronze Delta
+     |
+     v
+Databricks Silver Delta
+     |
+     v
+Databricks Gold Delta
+     |
+     v
+Amazon RDS PostgreSQL
+     |
+     v
+FastAPI Analytics API
+     |
+     v
+Streamlit Dashboard
+     |
+     v
+GenAI SQL Assistant
+```
+
+Cloud streaming flow:
+
+```text
+Event Generator
+     |
+     v
+Kafka
+     |
+     v
+Spark Structured Streaming
+     |
+     v
+Bronze Event Delta on S3
+     |
+     v
+Silver Event Delta on S3
+     |
+     v
+Gold realtime_metrics Delta
+     |
+     v
+Amazon RDS PostgreSQL
+     |
+     v
+Streamlit Real-Time Dashboard
+```
+
 ## Features
 
 - Synthetic e-commerce data generation
@@ -585,9 +660,20 @@ and pass the required bundle variables:
 
 ```bash
 make databricks-validate
+make databricks-put-secrets
 make databricks-deploy
 make databricks-run-batch
 ```
+
+For Databricks Free Edition/serverless, the default lakehouse root is:
+
+```text
+/Volumes/workspace/default/ai_powered_lakehouse
+```
+
+If Databricks cannot reach RDS, allow PostgreSQL port `5432` from Databricks
+serverless networking or load the Databricks-produced Gold Delta tables from a
+network location that can reach RDS.
 
 See `docs/databricks_aws_deployment.md` for setup details.
 

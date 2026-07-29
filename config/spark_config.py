@@ -4,13 +4,17 @@ from collections.abc import Mapping
 from contextlib import contextmanager
 from typing import Iterator
 
-from delta import configure_spark_with_delta_pip
 from pyspark.sql import SparkSession
 
 from config.logging_config import get_logger
 from config.settings import Settings, get_settings
 
 logger = get_logger(__name__)
+
+try:
+    from delta import configure_spark_with_delta_pip
+except ModuleNotFoundError:
+    configure_spark_with_delta_pip = None
 
 
 def build_spark_session(
@@ -25,38 +29,50 @@ def build_spark_session(
     warehouse_dir = resolved_settings.resolve_path(resolved_settings.warehouse_dir)
     warehouse_dir.mkdir(parents=True, exist_ok=True)
 
-    builder = (
-        SparkSession.builder.appName(app_name or resolved_settings.app_name)
-        .master(resolved_settings.spark_master_url)
-        .config("spark.driver.memory", resolved_settings.spark_driver_memory)
-        .config("spark.executor.memory", resolved_settings.spark_executor_memory)
-        .config(
-            "spark.sql.shuffle.partitions",
-            str(resolved_settings.spark_sql_shuffle_partitions),
-        )
-        .config("spark.sql.warehouse.dir", str(warehouse_dir))
-        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-        .config(
-            "spark.sql.catalog.spark_catalog",
-            "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-        )
-        .config("spark.databricks.delta.schema.autoMerge.enabled", "true")
+    builder = SparkSession.builder.appName(app_name or resolved_settings.app_name).config(
+        "spark.sql.shuffle.partitions",
+        str(resolved_settings.spark_sql_shuffle_partitions),
     )
+
+    if resolved_settings.environment.lower() == "databricks":
+        builder = builder.config("spark.databricks.delta.schema.autoMerge.enabled", "true")
+    else:
+        builder = (
+            builder.master(resolved_settings.spark_master_url)
+            .config("spark.driver.memory", resolved_settings.spark_driver_memory)
+            .config("spark.executor.memory", resolved_settings.spark_executor_memory)
+            .config("spark.sql.warehouse.dir", str(warehouse_dir))
+            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+            .config(
+                "spark.sql.catalog.spark_catalog",
+                "org.apache.spark.sql.delta.catalog.DeltaCatalog",
+            )
+        )
 
     for key, value in (extra_configs or {}).items():
         builder = builder.config(key, value)
 
-    spark = configure_spark_with_delta_pip(
-        builder, extra_packages=extra_packages
-    ).getOrCreate()
-    spark.sparkContext.setLogLevel("WARN")
-    logger.info(
-        "Spark session started",
-        extra={
-            "app_name": spark.sparkContext.appName,
-            "master": spark.sparkContext.master,
-        },
-    )
+    if resolved_settings.environment.lower() == "databricks":
+        spark = builder.getOrCreate()
+    else:
+        if configure_spark_with_delta_pip is None:
+            raise RuntimeError(
+                "delta-spark is required for local Spark runs. Install project requirements."
+            )
+        spark = configure_spark_with_delta_pip(
+            builder, extra_packages=extra_packages
+        ).getOrCreate()
+    if resolved_settings.environment.lower() == "databricks":
+        logger.info("Spark session started on Databricks serverless")
+    else:
+        spark.sparkContext.setLogLevel("WARN")
+        logger.info(
+            "Spark session started",
+            extra={
+                "app_name": spark.sparkContext.appName,
+                "master": spark.sparkContext.master,
+            },
+        )
     return spark
 
 
@@ -64,9 +80,8 @@ def stop_spark_session(spark: SparkSession | None) -> None:
     """Stop a SparkSession if one is active."""
 
     if spark is not None:
-        app_name = spark.sparkContext.appName
         spark.stop()
-        logger.info("Spark session stopped: %s", app_name)
+        logger.info("Spark session stopped")
 
 
 @contextmanager
