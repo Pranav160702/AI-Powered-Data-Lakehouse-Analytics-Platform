@@ -1,4 +1,4 @@
-.PHONY: setup test generate-data bronze silver gold postgres-load dashboard streamlit ml start-full-demo streaming-up streaming-down airflow-up airflow-down docker-build docker-up docker-down docker-logs kafka-topics
+.PHONY: setup test generate-data bronze silver gold postgres-load dashboard streamlit ml start-full-demo streaming-up streaming-down airflow-up airflow-down databricks-validate databricks-deploy databricks-run-batch docker-build docker-up docker-down docker-logs kafka-topics
 
 setup:
 	python3 -m venv .venv
@@ -43,6 +43,15 @@ airflow-up:
 
 airflow-down:
 	docker compose --profile orchestration stop airflow-webserver airflow-scheduler
+
+databricks-validate:
+	databricks bundle validate -t dev
+
+databricks-deploy:
+	databricks bundle deploy -t dev
+
+databricks-run-batch:
+	databricks bundle run -t dev lakehouse_batch_pipeline
 
 kafka-topics:
 	scripts/create_kafka_topics.sh

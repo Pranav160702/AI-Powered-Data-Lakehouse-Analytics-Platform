@@ -1,0 +1,70 @@
+bundle:
+  name: ai_powered_data_lakehouse_analytics_platform
+
+include:
+  - databricks/resources/*.yml
+
+variables:
+  workspace_host:
+    description: Databricks workspace URL, for example https://dbc-xxxx.cloud.databricks.com
+  lakehouse_root:
+    description: Unity Catalog volume or DBFS mount path backed by S3.
+    default: /Volumes/main/lakehouse/ai_powered_lakehouse
+  spark_version:
+    description: Databricks Runtime version for job clusters.
+    default: 15.4.x-scala2.12
+  node_type_id:
+    description: AWS node type for Databricks job clusters.
+    default: i3.xlarge
+  kafka_bootstrap_servers:
+    description: Amazon MSK or Kafka bootstrap servers reachable from Databricks.
+    default: your-msk-bootstrap-brokers:9092
+  postgres_host:
+    description: RDS/Aurora PostgreSQL endpoint reachable from Databricks.
+    default: your-rds-endpoint.amazonaws.com
+  postgres_db:
+    description: PostgreSQL serving database name.
+    default: lakehouse_analytics
+  postgres_user:
+    description: PostgreSQL serving username.
+    default: lakehouse_user
+
+workspace:
+  host: ${var.workspace_host}
+
+sync:
+  include:
+    - airflow/**
+    - analytics/**
+    - config/**
+    - dashboard/**
+    - database/**
+    - genai/**
+    - ingestion/**
+    - lakehouse/**
+    - ml/**
+    - scripts/**
+    - streaming/**
+    - tests/**
+    - requirements.txt
+    - pyproject.toml
+  exclude:
+    - .env
+    - .env.*
+    - data/**
+    - warehouse/**
+    - checkpoints/**
+    - models/**
+    - logs/**
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      root_path: ~/.bundle/${bundle.name}/${bundle.target}
+
+  prod:
+    mode: production
+    workspace:
+      root_path: /Shared/.bundle/${bundle.name}/${bundle.target}

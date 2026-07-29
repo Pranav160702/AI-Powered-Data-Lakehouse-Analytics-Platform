@@ -552,6 +552,36 @@ Stop services:
 docker compose down
 ```
 
+## Databricks on AWS
+
+This repo now includes a Databricks-on-AWS deployment scaffold:
+
+```text
+databricks.yml
+databricks/resources/jobs.yml
+.env.databricks.example
+docs/databricks_aws_deployment.md
+```
+
+Recommended cloud path:
+
+```text
+S3-backed Unity Catalog volume
+-> Databricks Delta Lake tables
+-> Databricks Jobs for batch, streaming, and ML
+-> RDS/Aurora PostgreSQL serving layer
+```
+
+After installing and authenticating the Databricks CLI:
+
+```bash
+make databricks-validate
+make databricks-deploy
+make databricks-run-batch
+```
+
+See `docs/databricks_aws_deployment.md` for setup details.
+
 View logs:
 
 ```bash

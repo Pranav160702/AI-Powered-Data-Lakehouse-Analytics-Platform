@@ -1,0 +1,203 @@
+resources:
+  jobs:
+    lakehouse_batch_pipeline:
+      name: ${bundle.target}-lakehouse-batch-pipeline
+      description: Generate source data, ingest Bronze, clean Silver, build Gold, load PostgreSQL, and refresh ML forecasts.
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"
+        timezone_id: UTC
+        pause_status: PAUSED
+      job_clusters:
+        - job_cluster_key: lakehouse_job_cluster
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            num_workers: 2
+            spark_env_vars:
+              ENVIRONMENT: databricks
+              DATA_DIR: ${var.lakehouse_root}/data
+              RAW_DATA_DIR: ${var.lakehouse_root}/data/raw
+              WAREHOUSE_DIR: ${var.lakehouse_root}/warehouse
+              CHECKPOINT_DIR: ${var.lakehouse_root}/checkpoints
+              MODEL_DIR: ${var.lakehouse_root}/models
+              KAFKA_BOOTSTRAP_SERVERS: ${var.kafka_bootstrap_servers}
+              POSTGRES_HOST: ${var.postgres_host}
+              POSTGRES_DB: ${var.postgres_db}
+              POSTGRES_USER: ${var.postgres_user}
+      tasks:
+        - task_key: generate_sample_data
+          job_cluster_key: lakehouse_job_cluster
+          spark_python_task:
+            python_file: ../../scripts/generate_sample_data.py
+          libraries:
+            - pypi:
+                package: pydantic==2.8.2
+            - pypi:
+                package: pydantic-settings==2.4.0
+
+        - task_key: ingest_bronze
+          depends_on:
+            - task_key: generate_sample_data
+          job_cluster_key: lakehouse_job_cluster
+          spark_python_task:
+            python_file: ../../ingestion/batch_ingestion.py
+          libraries:
+            - pypi:
+                package: delta-spark==3.2.0
+            - pypi:
+                package: pydantic==2.8.2
+            - pypi:
+                package: pydantic-settings==2.4.0
+
+        - task_key: transform_silver
+          depends_on:
+            - task_key: ingest_bronze
+          job_cluster_key: lakehouse_job_cluster
+          spark_python_task:
+            python_file: ../../lakehouse/silver/silver_pipeline.py
+          libraries:
+            - pypi:
+                package: delta-spark==3.2.0
+            - pypi:
+                package: pydantic==2.8.2
+            - pypi:
+                package: pydantic-settings==2.4.0
+
+        - task_key: build_gold
+          depends_on:
+            - task_key: transform_silver
+          job_cluster_key: lakehouse_job_cluster
+          spark_python_task:
+            python_file: ../../lakehouse/gold/gold_pipeline.py
+          libraries:
+            - pypi:
+                package: delta-spark==3.2.0
+            - pypi:
+                package: pydantic==2.8.2
+            - pypi:
+                package: pydantic-settings==2.4.0
+
+        - task_key: load_postgres
+          depends_on:
+            - task_key: build_gold
+          job_cluster_key: lakehouse_job_cluster
+          spark_python_task:
+            python_file: ../../database/load_gold_to_postgres.py
+          libraries:
+            - pypi:
+                package: delta-spark==3.2.0
+            - pypi:
+                package: pandas==2.2.2
+            - pypi:
+                package: SQLAlchemy==1.4.54
+            - pypi:
+                package: psycopg2-binary==2.9.9
+            - pypi:
+                package: pydantic==2.8.2
+            - pypi:
+                package: pydantic-settings==2.4.0
+
+        - task_key: train_demand_forecast
+          depends_on:
+            - task_key: transform_silver
+          job_cluster_key: lakehouse_job_cluster
+          spark_python_task:
+            python_file: ../../ml/train_demand_forecast.py
+          libraries:
+            - pypi:
+                package: delta-spark==3.2.0
+            - pypi:
+                package: pandas==2.2.2
+            - pypi:
+                package: numpy==1.26.4
+            - pypi:
+                package: scikit-learn==1.5.1
+            - pypi:
+                package: pydantic==2.8.2
+            - pypi:
+                package: pydantic-settings==2.4.0
+
+        - task_key: predict_demand
+          depends_on:
+            - task_key: train_demand_forecast
+          job_cluster_key: lakehouse_job_cluster
+          spark_python_task:
+            python_file: ../../ml/predict_demand.py
+          libraries:
+            - pypi:
+                package: delta-spark==3.2.0
+            - pypi:
+                package: pandas==2.2.2
+            - pypi:
+                package: numpy==1.26.4
+            - pypi:
+                package: scikit-learn==1.5.1
+            - pypi:
+                package: pydantic==2.8.2
+            - pypi:
+                package: pydantic-settings==2.4.0
+
+    lakehouse_realtime_metrics_stream:
+      name: ${bundle.target}-lakehouse-realtime-metrics-stream
+      description: Continuously read Kafka events and write Gold real-time Delta metrics.
+      job_clusters:
+        - job_cluster_key: streaming_job_cluster
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            num_workers: 2
+            spark_env_vars:
+              ENVIRONMENT: databricks
+              WAREHOUSE_DIR: ${var.lakehouse_root}/warehouse
+              CHECKPOINT_DIR: ${var.lakehouse_root}/checkpoints
+              KAFKA_BOOTSTRAP_SERVERS: ${var.kafka_bootstrap_servers}
+      tasks:
+        - task_key: realtime_metrics
+          job_cluster_key: streaming_job_cluster
+          spark_python_task:
+            python_file: ../../streaming/realtime_aggregations.py
+          libraries:
+            - pypi:
+                package: delta-spark==3.2.0
+            - pypi:
+                package: pydantic==2.8.2
+            - pypi:
+                package: pydantic-settings==2.4.0
+
+    lakehouse_realtime_loader:
+      name: ${bundle.target}-lakehouse-realtime-loader
+      description: Periodically load Gold real-time metrics from Delta to PostgreSQL.
+      schedule:
+        quartz_cron_expression: "0 0/1 * * * ?"
+        timezone_id: UTC
+        pause_status: PAUSED
+      job_clusters:
+        - job_cluster_key: realtime_loader_cluster
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            num_workers: 1
+            spark_env_vars:
+              ENVIRONMENT: databricks
+              WAREHOUSE_DIR: ${var.lakehouse_root}/warehouse
+              POSTGRES_HOST: ${var.postgres_host}
+              POSTGRES_DB: ${var.postgres_db}
+              POSTGRES_USER: ${var.postgres_user}
+      tasks:
+        - task_key: load_realtime_metrics
+          job_cluster_key: realtime_loader_cluster
+          spark_python_task:
+            python_file: ../../streaming/load_realtime_to_postgres.py
+          libraries:
+            - pypi:
+                package: delta-spark==3.2.0
+            - pypi:
+                package: pandas==2.2.2
+            - pypi:
+                package: SQLAlchemy==1.4.54
+            - pypi:
+                package: psycopg2-binary==2.9.9
+            - pypi:
+                package: pydantic==2.8.2
+            - pypi:
+                package: pydantic-settings==2.4.0
