@@ -229,7 +229,7 @@ POSTGRES_PASSWORD=change_me
 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 
 GROQ_API_KEY=
-GROQ_MODEL=llama-3.1-70b-versatile
+GROQ_MODEL=openai/gpt-oss-120b
 ```
 
 
@@ -517,7 +517,7 @@ Set your Groq API key in `.env`:
 
 ```env
 GROQ_API_KEY=your_groq_api_key
-GROQ_MODEL=llama-3.1-70b-versatile
+GROQ_MODEL=openai/gpt-oss-120b
 ```
 
 Ask a question from the CLI:

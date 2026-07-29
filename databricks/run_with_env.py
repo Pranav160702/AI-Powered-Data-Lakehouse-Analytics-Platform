@@ -21,6 +21,12 @@ def parse_args() -> argparse.Namespace:
         help="Environment assignment in KEY=VALUE form. Can be supplied multiple times.",
     )
     parser.add_argument(
+        "--secret-env",
+        action="append",
+        default=[],
+        help="Environment assignment in KEY=scope/key form resolved with Databricks secrets.",
+    )
+    parser.add_argument(
         "script_args",
         nargs=argparse.REMAINDER,
         help="Arguments forwarded to the target script after an optional -- separator.",
@@ -38,6 +44,32 @@ def apply_environment(assignments: list[str]) -> None:
         os.environ[key] = value
 
 
+def get_databricks_secret(scope: str, key: str) -> str:
+    """Read one Databricks secret from a Python file task."""
+
+    try:
+        from pyspark.dbutils import DBUtils
+        from pyspark.sql import SparkSession
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("Databricks secret resolution requires PySpark.") from exc
+
+    spark = SparkSession.builder.getOrCreate()
+    return DBUtils(spark).secrets.get(scope=scope, key=key)
+
+
+def apply_secret_environment(assignments: list[str]) -> None:
+    """Apply KEY=scope/key assignments from Databricks secrets."""
+
+    for assignment in assignments:
+        if "=" not in assignment:
+            raise ValueError(f"Invalid secret environment assignment: {assignment}")
+        env_key, secret_ref = assignment.split("=", 1)
+        if "/" not in secret_ref:
+            raise ValueError(f"Invalid secret reference: {secret_ref}")
+        scope, secret_key = secret_ref.split("/", 1)
+        os.environ[env_key] = get_databricks_secret(scope, secret_key)
+
+
 def main() -> None:
     """Set environment and run the requested script."""
 
@@ -49,6 +81,7 @@ def main() -> None:
         raise FileNotFoundError(f"Bundle script not found: {script_path}")
 
     apply_environment(args.env)
+    apply_secret_environment(args.secret_env)
 
     if str(bundle_root) not in sys.path:
         sys.path.insert(0, str(bundle_root))

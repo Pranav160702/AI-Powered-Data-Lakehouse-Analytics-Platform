@@ -54,13 +54,13 @@ databricks-put-secrets:
 	set -a; . ./.env; set +a; databricks secrets create-scope lakehouse || true; databricks secrets put-secret lakehouse postgres_password --string-value "$$POSTGRES_PASSWORD"
 
 databricks-validate:
-	set -a; . ./.env; set +a; databricks bundle validate -t dev --var lakehouse_root="$${DATABRICKS_LAKEHOUSE_ROOT:-/Volumes/workspace/default/ai_powered_lakehouse}" --var postgres_host="$$POSTGRES_HOST" --var postgres_db="$$POSTGRES_DB" --var postgres_user="$$POSTGRES_USER"
+	set -a; . ./.env; set +a; databricks bundle validate -t dev --var lakehouse_root="$${DATABRICKS_LAKEHOUSE_ROOT:-/Volumes/workspace/default/ai_powered_lakehouse}" --var postgres_host="$$POSTGRES_HOST" --var postgres_db="$$POSTGRES_DB" --var postgres_user="$$POSTGRES_USER" --var postgres_sslmode="$${POSTGRES_SSLMODE:-require}"
 
 databricks-deploy:
-	set -a; . ./.env; set +a; databricks bundle deploy -t dev --var lakehouse_root="$${DATABRICKS_LAKEHOUSE_ROOT:-/Volumes/workspace/default/ai_powered_lakehouse}" --var postgres_host="$$POSTGRES_HOST" --var postgres_db="$$POSTGRES_DB" --var postgres_user="$$POSTGRES_USER"
+	set -a; . ./.env; set +a; databricks bundle deploy -t dev --var lakehouse_root="$${DATABRICKS_LAKEHOUSE_ROOT:-/Volumes/workspace/default/ai_powered_lakehouse}" --var postgres_host="$$POSTGRES_HOST" --var postgres_db="$$POSTGRES_DB" --var postgres_user="$$POSTGRES_USER" --var postgres_sslmode="$${POSTGRES_SSLMODE:-require}"
 
 databricks-run-batch:
-	set -a; . ./.env; set +a; databricks bundle run -t dev lakehouse_batch_pipeline --var lakehouse_root="$${DATABRICKS_LAKEHOUSE_ROOT:-/Volumes/workspace/default/ai_powered_lakehouse}" --var postgres_host="$$POSTGRES_HOST" --var postgres_db="$$POSTGRES_DB" --var postgres_user="$$POSTGRES_USER"
+	set -a; . ./.env; set +a; databricks bundle run -t dev lakehouse_batch_pipeline --var lakehouse_root="$${DATABRICKS_LAKEHOUSE_ROOT:-/Volumes/workspace/default/ai_powered_lakehouse}" --var postgres_host="$$POSTGRES_HOST" --var postgres_db="$$POSTGRES_DB" --var postgres_user="$$POSTGRES_USER" --var postgres_sslmode="$${POSTGRES_SSLMODE:-require}"
 
 databricks-load-gold-local:
 	scripts/load_databricks_gold_to_rds_local.sh

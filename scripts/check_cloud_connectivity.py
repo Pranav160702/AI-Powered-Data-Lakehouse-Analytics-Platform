@@ -10,7 +10,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from config.settings import Settings
+from database.connection import create_postgres_engine
 from scripts.validate_cloud_config import validate_settings
 
 
@@ -127,7 +128,7 @@ def check_databricks_bundle(settings: Settings) -> CheckResult:
 def check_postgres(settings: Settings) -> CheckResult:
     """Verify this machine can connect to PostgreSQL."""
 
-    engine = create_engine(settings.postgres_sqlalchemy_url)
+    engine = create_postgres_engine(settings)
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))

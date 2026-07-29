@@ -19,6 +19,10 @@ def create_postgres_engine(settings: Settings | None = None) -> Engine:
     """Create a pooled SQLAlchemy engine for PostgreSQL."""
 
     resolved_settings = settings or get_settings()
+    connect_args = {"connect_timeout": resolved_settings.postgres_connect_timeout}
+    if resolved_settings.postgres_sslmode:
+        connect_args["sslmode"] = resolved_settings.postgres_sslmode
+
     url = URL.create(
         drivername="postgresql+psycopg2",
         username=resolved_settings.postgres_user,
@@ -32,7 +36,7 @@ def create_postgres_engine(settings: Settings | None = None) -> Engine:
         pool_pre_ping=True,
         pool_size=resolved_settings.postgres_pool_size,
         max_overflow=resolved_settings.postgres_max_overflow,
-        connect_args={"connect_timeout": resolved_settings.postgres_connect_timeout},
+        connect_args=connect_args,
         future=True,
     )
 

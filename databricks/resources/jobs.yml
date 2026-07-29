@@ -109,8 +109,10 @@ resources:
               - POSTGRES_DB=${var.postgres_db}
               - --env
               - POSTGRES_USER=${var.postgres_user}
+              - --secret-env
+              - POSTGRES_PASSWORD=lakehouse/postgres_password
               - --env
-              - POSTGRES_PASSWORD=${var.postgres_password}
+              - POSTGRES_SSLMODE=${var.postgres_sslmode}
 
         - task_key: train_demand_forecast
           depends_on:
@@ -206,5 +208,7 @@ resources:
               - POSTGRES_DB=${var.postgres_db}
               - --env
               - POSTGRES_USER=${var.postgres_user}
+              - --secret-env
+              - POSTGRES_PASSWORD=lakehouse/postgres_password
               - --env
-              - POSTGRES_PASSWORD=${var.postgres_password}
+              - POSTGRES_SSLMODE=${var.postgres_sslmode}

@@ -18,7 +18,7 @@ from analytics.kpi_service import create_dashboard_engine, load_dashboard_data
 from config.logging_config import configure_logging
 from config.settings import get_settings
 from dashboard.components.sidebar import render_sidebar
-from dashboard.pages import (
+from dashboard.views import (
     ai_assistant,
     customer_analytics,
     forecasting,

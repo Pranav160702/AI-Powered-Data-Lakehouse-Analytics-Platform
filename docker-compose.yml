@@ -114,7 +114,7 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       ANALYTICS_API_URL: http://api:8000
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPARK_MASTER_URL: local[*]
@@ -322,7 +322,7 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
     volumes:
       - ./warehouse:/opt/app/warehouse
       - ./logs:/opt/app/logs

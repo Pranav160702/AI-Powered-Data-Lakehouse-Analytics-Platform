@@ -14,12 +14,18 @@ def date_range_filter(df: pd.DataFrame, date_column: str) -> tuple[pd.Timestamp 
     dates = pd.to_datetime(df[date_column]).dropna()
     if dates.empty:
         return None, None
-    start, end = st.date_input(
+    selected_range = st.date_input(
         "Date range",
         value=(dates.min().date(), dates.max().date()),
         min_value=dates.min().date(),
         max_value=dates.max().date(),
     )
+
+    if isinstance(selected_range, tuple) and len(selected_range) == 2:
+        start, end = selected_range
+    else:
+        start = end = selected_range[0] if isinstance(selected_range, tuple) else selected_range
+
     return pd.Timestamp(start), pd.Timestamp(end)
 
 

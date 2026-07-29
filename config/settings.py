@@ -65,11 +65,12 @@ class Settings(BaseSettings):
     postgres_pool_size: int = Field(default=5, ge=1)
     postgres_max_overflow: int = Field(default=10, ge=0)
     postgres_connect_timeout: int = Field(default=10, ge=1)
+    postgres_sslmode: str | None = Field(default=None)
 
     analytics_api_url: str | None = Field(default=None)
 
     groq_api_key: str | None = Field(default=None)
-    groq_model: str = Field(default="llama-3.1-70b-versatile")
+    groq_model: str = Field(default="openai/gpt-oss-120b")
 
     @property
     def project_root(self) -> Path:
@@ -86,10 +87,13 @@ class Settings(BaseSettings):
     def postgres_sqlalchemy_url(self) -> str:
         """Return the SQLAlchemy URL for PostgreSQL without logging it."""
 
-        return (
+        url = (
             f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+        if self.postgres_sslmode:
+            return f"{url}?sslmode={self.postgres_sslmode}"
+        return url
 
     def s3_uri(self, prefix: str = "") -> str:
         """Return an S3 URI for the configured bucket and optional prefix."""

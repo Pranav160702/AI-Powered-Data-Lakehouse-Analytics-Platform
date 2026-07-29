@@ -26,9 +26,9 @@ variables:
   postgres_user:
     description: PostgreSQL serving username.
     default: lakehouse_user
-  postgres_password:
-    description: PostgreSQL serving password. Prefer a Databricks secret reference for shared deployments.
-    default: "{{secrets/lakehouse/postgres_password}}"
+  postgres_sslmode:
+    description: PostgreSQL SSL mode. RDS commonly requires SSL from cloud clients.
+    default: require
 
 sync:
   include:
